@@ -11,11 +11,18 @@ Creates
 ✔ Top Positive Words
 ✔ Top Negative Words
 """
+
+import os
+
+OUTPUT_DIR = os.path.join("static", "generated")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 import matplotlib
 matplotlib.use("Agg") 
 import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import CountVectorizer
 from wordcloud import WordCloud
+
 
 
 # ---------------------------------------------------
@@ -48,7 +55,7 @@ def create_pie_chart(summary):
 
     plt.tight_layout()
 
-    plt.savefig("static/generated/pie_chart.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "pie_chart.png"))
 
     plt.close()
 
@@ -77,7 +84,7 @@ def create_wordcloud(df):
 
     plt.tight_layout()
 
-    plt.savefig("static/generated/wordcloud.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "wordcloud.png"))
 
     plt.close()
 
@@ -129,7 +136,7 @@ def create_positive_chart(df):
 
     plt.tight_layout()
 
-    plt.savefig("static/generated/positive_words.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "positive_words.png"))
 
     plt.close()
 
@@ -155,6 +162,6 @@ def create_negative_chart(df):
 
     plt.tight_layout()
 
-    plt.savefig("static/generated/negative_words.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "negative_words.png"))
 
     plt.close()

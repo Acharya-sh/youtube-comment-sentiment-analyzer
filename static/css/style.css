@@ -1,0 +1,317 @@
+/* =======================================================
+   SocialPulse
+   Modern Dashboard Theme
+======================================================= */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Segoe UI",sans-serif;
+}
+
+body{
+
+    background:#f4f7fb;
+
+    color:#222;
+
+}
+
+/* Hero */
+
+.hero{
+
+    text-align:center;
+
+    margin-top:60px;
+
+    margin-bottom:40px;
+
+}
+
+.hero h1{
+
+    font-size:52px;
+
+    font-weight:700;
+
+    color:#0d6efd;
+
+}
+
+.hero p{
+
+    font-size:20px;
+
+    color:#666;
+
+}
+
+/* Home Card */
+
+.main-card{
+
+    max-width:750px;
+
+    margin:auto;
+
+    border:none;
+
+    border-radius:20px;
+
+}
+
+/* Buttons */
+
+.btn-primary{
+
+    border-radius:12px;
+
+    padding:14px;
+
+    font-size:18px;
+
+    transition:.3s;
+
+}
+
+.btn-primary:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:0px 10px 20px rgba(0,0,0,.15);
+
+}
+
+/* Features */
+
+.features{
+
+    margin-top:70px;
+
+}
+
+.feature-card{
+
+    background:white;
+
+    padding:35px;
+
+    border-radius:18px;
+
+    text-align:center;
+
+    transition:.3s;
+
+    box-shadow:0px 8px 18px rgba(0,0,0,.08);
+
+    height:100%;
+
+}
+
+.feature-card:hover{
+
+    transform:translateY(-10px);
+
+}
+
+.feature-card i{
+
+    font-size:55px;
+
+    color:#0d6efd;
+
+    margin-bottom:20px;
+
+}
+
+.feature-card h4{
+
+    margin-bottom:15px;
+
+    font-weight:700;
+
+}
+
+/* Dashboard Cards */
+
+.card{
+
+    border:none;
+
+    border-radius:18px;
+
+    box-shadow:0px 6px 18px rgba(0,0,0,.08);
+
+}
+
+/* Sentiment Cards */
+
+.positive-card{
+
+    background:#198754;
+
+    color:white;
+
+}
+
+.neutral-card{
+
+    background:#ffc107;
+
+    color:#222;
+
+}
+
+.negative-card{
+
+    background:#dc3545;
+
+    color:white;
+
+}
+
+.positive-card h1,
+
+.neutral-card h1,
+
+.negative-card h1{
+
+    font-size:60px;
+
+    font-weight:700;
+
+}
+
+/* Images */
+
+img{
+
+    border-radius:12px;
+
+}
+
+/* Comment Section */
+
+.comment-box{
+
+    max-height:500px;
+
+    overflow-y:auto;
+
+}
+
+.comment-box p{
+
+    font-size:14px;
+
+    line-height:1.6;
+
+}
+
+/* Dashboard Title */
+
+h1{
+
+    font-weight:700;
+
+}
+
+/* Statistics */
+
+.card-body p{
+
+    margin-bottom:8px;
+
+}
+
+/* Download Button */
+
+.text-center .btn{
+
+    padding:14px 35px;
+
+    font-size:18px;
+
+    border-radius:12px;
+
+}
+
+/* Scrollbar */
+
+::-webkit-scrollbar{
+
+    width:10px;
+
+}
+
+::-webkit-scrollbar-thumb{
+
+    background:#0d6efd;
+
+    border-radius:20px;
+
+}
+
+/* Animation */
+
+.card{
+
+    animation:fadeUp .7s ease;
+
+}
+
+@keyframes fadeUp{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(30px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+/* Responsive */
+
+@media(max-width:768px){
+
+.hero h1{
+
+font-size:38px;
+
+}
+
+.hero p{
+
+font-size:16px;
+
+}
+
+.positive-card h1,
+
+.neutral-card h1,
+
+.negative-card h1{
+
+font-size:45px;
+
+}
+
+.feature-card{
+
+margin-bottom:20px;
+
+}
+
+}

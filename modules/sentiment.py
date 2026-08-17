@@ -8,6 +8,7 @@ Features
 --------
 ✔ Text Cleaning
 ✔ VADER Sentiment Analysis
+✔ Emoji-aware sentiment handling
 ✔ Positive / Neutral / Negative Classification
 ✔ Sentiment Score
 ✔ DataFrame Generation
@@ -22,6 +23,7 @@ import nltk
 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
+
 # ---------------------------------------------------
 # Download Required Resources
 # ---------------------------------------------------
@@ -31,6 +33,7 @@ try:
 except LookupError:
     nltk.download("vader_lexicon")
 
+
 sia = SentimentIntensityAnalyzer()
 
 
@@ -39,18 +42,93 @@ sia = SentimentIntensityAnalyzer()
 # ---------------------------------------------------
 
 def clean_text(text):
+    """
+    Cleans unnecessary URLs, mentions and extra spaces.
+    """
 
+    if text is None:
+        return ""
+
+    text = str(text)
+
+    # Remove URLs
     text = re.sub(r"http\S+", "", text)
-
     text = re.sub(r"www\S+", "", text)
 
+    # Remove @mentions
     text = re.sub(r"@\w+", "", text)
 
+    # Remove # symbol but keep the actual word
     text = re.sub(r"#", "", text)
 
-    text = text.strip()
+    # Remove extra whitespace
+    text = re.sub(r"\s+", " ", text)
 
-    return text
+    return text.strip()
+
+
+# ---------------------------------------------------
+# Emoji Sentiment
+# ---------------------------------------------------
+
+def emoji_sentiment(text):
+    """
+    Detects common sentiment-related emojis.
+
+    Returns:
+        1  -> Positive
+       -1  -> Negative
+        0  -> No strong emoji sentiment
+    """
+
+    positive_emojis = [
+        "❤️",
+        "❤",
+        "♥️",
+        "♥",
+        "😊",
+        "😄",
+        "😁",
+        "😂",
+        "🤣",
+        "😍",
+        "🥰",
+        "😘",
+        "👍",
+        "👏",
+        "🙌",
+        "✨",
+        "🔥",
+        "💯",
+        "🎉",
+        "😎"
+    ]
+
+    negative_emojis = [
+        "😡",
+        "😠",
+        "🤬",
+        "😞",
+        "😔",
+        "😢",
+        "😭",
+        "😩",
+        "😫",
+        "👎",
+        "💔",
+        "🤮",
+        "😱"
+    ]
+
+    for emoji in positive_emojis:
+        if emoji in text:
+            return 1
+
+    for emoji in negative_emojis:
+        if emoji in text:
+            return -1
+
+    return 0
 
 
 # ---------------------------------------------------
@@ -58,25 +136,71 @@ def clean_text(text):
 # ---------------------------------------------------
 
 def analyze_comment(text):
+    """
+    Analyze the sentiment of a single comment.
 
-    text = clean_text(text)
+    VADER is used as the primary sentiment analyzer,
+    with additional handling for emoji-only and
+    very short comments.
+    """
 
-    scores = sia.polarity_scores(text)
+    original_text = "" if text is None else str(text)
+
+    cleaned = clean_text(original_text)
+
+    # Get emoji sentiment before removing anything
+    emoji_score = emoji_sentiment(original_text)
+
+    # VADER analysis
+    scores = sia.polarity_scores(original_text)
 
     compound = scores["compound"]
 
-    if compound >= 0.05:
-        sentiment = "Positive"
+    # ------------------------------------------------
+    # Handle emoji-only comments
+    # ------------------------------------------------
 
-    elif compound <= -0.05:
-        sentiment = "Negative"
+    if not cleaned:
+
+        if emoji_score > 0:
+            sentiment = "Positive"
+
+        elif emoji_score < 0:
+            sentiment = "Negative"
+
+        else:
+            sentiment = "Neutral"
 
     else:
-        sentiment = "Neutral"
+
+        # ------------------------------------------------
+        # VADER classification
+        # ------------------------------------------------
+
+        if compound >= 0.05:
+            sentiment = "Positive"
+
+        elif compound <= -0.05:
+            sentiment = "Negative"
+
+        else:
+
+            # ------------------------------------------------
+            # Emoji fallback
+            # ------------------------------------------------
+
+            if emoji_score > 0:
+                sentiment = "Positive"
+
+            elif emoji_score < 0:
+                sentiment = "Negative"
+
+            else:
+                sentiment = "Neutral"
 
     return {
 
-        "text": text,
+        "text": cleaned,
 
         "positive": scores["pos"],
 
@@ -96,12 +220,29 @@ def analyze_comment(text):
 # ---------------------------------------------------
 
 def analyze_comments(comment_list):
+    """
+    Analyze all comments and return a DataFrame.
+    """
 
     results = []
 
+    if not comment_list:
+        return pd.DataFrame(
+            columns=[
+                "text",
+                "positive",
+                "negative",
+                "neutral",
+                "compound",
+                "sentiment"
+            ]
+        )
+
     for comment in comment_list:
 
-        results.append(analyze_comment(comment))
+        result = analyze_comment(comment)
+
+        results.append(result)
 
     df = pd.DataFrame(results)
 
@@ -113,12 +254,41 @@ def analyze_comments(comment_list):
 # ---------------------------------------------------
 
 def sentiment_summary(df):
+    """
+    Generate Positive / Neutral / Negative summary.
+    """
 
-    positive = len(df[df["sentiment"] == "Positive"])
+    if df is None or df.empty:
 
-    negative = len(df[df["sentiment"] == "Negative"])
+        return {
 
-    neutral = len(df[df["sentiment"] == "Neutral"])
+            "total": 0,
+
+            "positive": 0,
+
+            "negative": 0,
+
+            "neutral": 0,
+
+            "positive_percent": 0,
+
+            "negative_percent": 0,
+
+            "neutral_percent": 0
+
+        }
+
+    positive = len(
+        df[df["sentiment"] == "Positive"]
+    )
+
+    negative = len(
+        df[df["sentiment"] == "Negative"]
+    )
+
+    neutral = len(
+        df[df["sentiment"] == "Neutral"]
+    )
 
     total = len(df)
 
@@ -132,11 +302,20 @@ def sentiment_summary(df):
 
         "neutral": neutral,
 
-        "positive_percent": round((positive / total) * 100, 2) if total else 0,
+        "positive_percent": round(
+            (positive / total) * 100,
+            2
+        ) if total else 0,
 
-        "negative_percent": round((negative / total) * 100, 2) if total else 0,
+        "negative_percent": round(
+            (negative / total) * 100,
+            2
+        ) if total else 0,
 
-        "neutral_percent": round((neutral / total) * 100, 2) if total else 0
+        "neutral_percent": round(
+            (neutral / total) * 100,
+            2
+        ) if total else 0
 
     }
 

@@ -13,12 +13,18 @@ Features:
 ✔ Fetch video information
 ✔ Support normal YouTube videos
 ✔ Support YouTube Shorts
+✔ Support youtu.be links
+✔ Support embedded YouTube videos
+✔ Keep short social-media comments
+✔ Format published date neatly
 ✔ Return structured data
 
 Author: SocialPulse
 """
 
 import re
+from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -43,43 +49,182 @@ youtube = build(
 
 def extract_video_id(url):
     """
-    Extracts YouTube Video ID from different URL formats.
+    Extracts the YouTube video ID from different
+    YouTube URL formats.
 
     Supported formats:
 
-    1. Normal YouTube video
+    1. Normal YouTube video:
        https://www.youtube.com/watch?v=VIDEO_ID
 
-    2. Short YouTube URL
+    2. Short YouTube URL:
        https://youtu.be/VIDEO_ID
 
-    3. Embedded video
+    3. Embedded YouTube video:
        https://www.youtube.com/embed/VIDEO_ID
 
-    4. YouTube Shorts
+    4. YouTube Shorts:
        https://www.youtube.com/shorts/VIDEO_ID
+
+    Returns:
+        Video ID string or None
     """
 
-    patterns = [
+    if not url:
+        return None
 
-        r"(?:youtube\.com/watch\?v=)([a-zA-Z0-9_-]{11})",
+    url = url.strip()
 
-        r"(?:youtu\.be/)([a-zA-Z0-9_-]{11})",
+    # ------------------------------------------------
+    # Make sure URL has a scheme
+    # ------------------------------------------------
 
-        r"(?:youtube\.com/embed/)([a-zA-Z0-9_-]{11})",
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        url = "https://" + url
 
-        r"(?:youtube\.com/shorts/)([a-zA-Z0-9_-]{11})"
+    try:
+        parsed = urlparse(url)
 
-    ]
+    except Exception:
+        return None
 
-    for pattern in patterns:
+    hostname = parsed.netloc.lower()
 
-        match = re.search(pattern, url)
+    # Remove www. if present
+    hostname = hostname.replace("www.", "")
 
-        if match:
-            return match.group(1)
+    path = parsed.path.strip("/")
+
+    # ------------------------------------------------
+    # Format 1: youtube.com/watch?v=VIDEO_ID
+    # ------------------------------------------------
+
+    if hostname in (
+        "youtube.com",
+        "m.youtube.com",
+        "music.youtube.com"
+    ):
+
+        query = parse_qs(parsed.query)
+
+        video_ids = query.get("v")
+
+        if video_ids:
+
+            video_id = video_ids[0]
+
+            if re.fullmatch(
+                r"[a-zA-Z0-9_-]{11}",
+                video_id
+            ):
+                return video_id
+
+    # ------------------------------------------------
+    # Format 2: youtu.be/VIDEO_ID
+    # ------------------------------------------------
+
+    if hostname == "youtu.be":
+
+        video_id = path.split("/")[0]
+
+        if re.fullmatch(
+            r"[a-zA-Z0-9_-]{11}",
+            video_id
+        ):
+            return video_id
+
+    # ------------------------------------------------
+    # Format 3: youtube.com/embed/VIDEO_ID
+    # ------------------------------------------------
+
+    if hostname in (
+        "youtube.com",
+        "m.youtube.com",
+        "music.youtube.com"
+    ):
+
+        path_parts = path.split("/")
+
+        if (
+            len(path_parts) >= 2
+            and path_parts[0].lower() == "embed"
+        ):
+
+            video_id = path_parts[1]
+
+            if re.fullmatch(
+                r"[a-zA-Z0-9_-]{11}",
+                video_id
+            ):
+                return video_id
+
+    # ------------------------------------------------
+    # Format 4: youtube.com/shorts/VIDEO_ID
+    # ------------------------------------------------
+
+    if hostname in (
+        "youtube.com",
+        "m.youtube.com",
+        "music.youtube.com"
+    ):
+
+        path_parts = path.split("/")
+
+        if (
+            len(path_parts) >= 2
+            and path_parts[0].lower() == "shorts"
+        ):
+
+            video_id = path_parts[1]
+
+            if re.fullmatch(
+                r"[a-zA-Z0-9_-]{11}",
+                video_id
+            ):
+                return video_id
 
     return None
+
+
+# ---------------------------------------------------
+# Format Published Date
+# ---------------------------------------------------
+
+def format_published_date(published_at):
+    """
+    Converts YouTube's ISO 8601 timestamp into
+    a cleaner dashboard-friendly format.
+
+    Example:
+
+    Input:
+        2026-08-13T17:29:59Z
+
+    Output:
+        13 Aug 2026 • 17:29:59 UTC
+    """
+
+    if not published_at:
+        return "Unknown"
+
+    try:
+
+        # Convert Z to UTC offset
+        formatted_date = datetime.fromisoformat(
+            published_at.replace(
+                "Z",
+                "+00:00"
+            )
+        )
+
+        return formatted_date.strftime(
+            "%d %b %Y • %H:%M:%S UTC"
+        )
+
+    except (ValueError, TypeError):
+
+        # If formatting fails, return original value
+        return published_at
 
 
 # ---------------------------------------------------
@@ -89,58 +234,132 @@ def extract_video_id(url):
 def fetch_video_details(video_id):
     """
     Fetches YouTube video information.
+
+    Returns:
+
+    - Video ID
+    - Title
+    - Channel
+    - Published date
+    - Thumbnail
+    - Views
+    - Likes
+    - Comment count
     """
+
+    if not video_id:
+        return None
 
     response = youtube.videos().list(
         part="snippet,statistics",
         id=video_id
     ).execute()
 
-    items = response.get("items", [])
+    items = response.get(
+        "items",
+        []
+    )
 
     if not items:
         return None
 
     video = items[0]
 
-    snippet = video["snippet"]
-    stats = video["statistics"]
+    snippet = video.get(
+        "snippet",
+        {}
+    )
 
-    thumbnails = snippet.get("thumbnails", {})
+    stats = video.get(
+        "statistics",
+        {}
+    )
+
+    # ------------------------------------------------
+    # Get best available thumbnail
+    # ------------------------------------------------
+
+    thumbnails = snippet.get(
+        "thumbnails",
+        {}
+    )
 
     thumbnail = ""
 
     if "high" in thumbnails:
-        thumbnail = thumbnails["high"]["url"]
+
+        thumbnail = thumbnails["high"].get(
+            "url",
+            ""
+        )
 
     elif "medium" in thumbnails:
-        thumbnail = thumbnails["medium"]["url"]
+
+        thumbnail = thumbnails["medium"].get(
+            "url",
+            ""
+        )
 
     elif "default" in thumbnails:
-        thumbnail = thumbnails["default"]["url"]
+
+        thumbnail = thumbnails["default"].get(
+            "url",
+            ""
+        )
+
+    # ------------------------------------------------
+    # Format published date
+    # ------------------------------------------------
+
+    published_at = snippet.get(
+        "publishedAt"
+    )
+
+    published = format_published_date(
+        published_at
+    )
+
+    # ------------------------------------------------
+    # Build video details
+    # ------------------------------------------------
 
     details = {
 
         "video_id": video_id,
 
-        "title": snippet.get("title"),
+        "title": snippet.get(
+            "title",
+            "Unknown"
+        ),
 
-        "channel": snippet.get("channelTitle"),
+        "channel": snippet.get(
+            "channelTitle",
+            "Unknown"
+        ),
 
-        "published": snippet.get("publishedAt"),
+        "published": published,
 
         "thumbnail": thumbnail,
 
         "views": int(
-            stats.get("viewCount", 0)
+            stats.get(
+                "viewCount",
+                0
+            )
         ),
 
         "likes": int(
-            stats.get("likeCount", 0)
+            stats.get(
+                "likeCount",
+                0
+            )
         ),
 
         "comments": int(
-            stats.get("commentCount", 0)
+            stats.get(
+                "commentCount",
+                0
+            )
         )
 
     }
@@ -156,7 +375,20 @@ def fetch_comments(video_id, limit=100):
     """
     Fetches top-level comments from YouTube.
 
-    Works for both normal videos and YouTube Shorts.
+    Works for:
+
+    - Normal YouTube videos
+    - YouTube Shorts
+
+    Short comments are also kept.
+
+    Examples:
+
+    - ❤️
+    - Lovely ❤️
+    - Great!
+    - Wow!
+    - Amazing video
     """
 
     comments = []
@@ -165,35 +397,73 @@ def fetch_comments(video_id, limit=100):
 
     while len(comments) < limit:
 
-        response = youtube.commentThreads().list(
-            part="snippet",
-            videoId=video_id,
-            maxResults=100,
-            textFormat="plainText",
-            pageToken=next_page
-        ).execute()
+        try:
 
-        for item in response.get("items", []):
+            response = youtube.commentThreads().list(
 
-            comment = (
-                item["snippet"]
-                ["topLevelComment"]
-                ["snippet"]
-                ["textDisplay"]
-            )
+                part="snippet",
 
-            # Ignore extremely short comments
+                videoId=video_id,
 
-            if len(comment.split()) > 3:
+                maxResults=100,
 
-                comments.append(comment)
+                textFormat="plainText",
+
+                pageToken=next_page
+
+            ).execute()
+
+        except HttpError:
+
+            # Comments may be disabled or unavailable
+            break
+
+        # ------------------------------------------------
+        # Process comments
+        # ------------------------------------------------
+
+        for item in response.get(
+            "items",
+            []
+        ):
+
+            try:
+
+                comment = (
+                    item["snippet"]
+                    ["topLevelComment"]
+                    ["snippet"]
+                    ["textDisplay"]
+                )
+
+            except KeyError:
+
+                continue
+
+            # ------------------------------------------------
+            # Keep every non-empty comment
+            # ------------------------------------------------
+
+            if comment and comment.strip():
+
+                comments.append(
+                    comment.strip()
+                )
 
             if len(comments) >= limit:
+
                 break
 
-        next_page = response.get("nextPageToken")
+        # ------------------------------------------------
+        # Get next page
+        # ------------------------------------------------
+
+        next_page = response.get(
+            "nextPageToken"
+        )
 
         if not next_page:
+
             break
 
     return comments[:limit]
@@ -213,21 +483,65 @@ def fetch_video_from_url(url):
     - youtu.be links
     - Embedded videos
     - YouTube Shorts
+
+    Returns:
+
+    {
+        video_id,
+        title,
+        channel,
+        published,
+        thumbnail,
+        views,
+        likes,
+        comments,
+        comments_list
+    }
     """
 
-    video_id = extract_video_id(url)
+    # ------------------------------------------------
+    # Extract Video ID
+    # ------------------------------------------------
+
+    video_id = extract_video_id(
+        url
+    )
 
     if video_id is None:
-        raise Exception("Invalid YouTube URL")
 
-    details = fetch_video_details(video_id)
+        raise Exception(
+            "Invalid YouTube URL"
+        )
+
+    # ------------------------------------------------
+    # Fetch video details
+    # ------------------------------------------------
+
+    details = fetch_video_details(
+        video_id
+    )
 
     if details is None:
-        raise Exception("YouTube video not found")
 
-    comments = fetch_comments(video_id)
+        raise Exception(
+            "YouTube video not found"
+        )
 
-    details["comments_list"] = comments
+    # ------------------------------------------------
+    # Fetch comments
+    # ------------------------------------------------
+
+    comments = fetch_comments(
+        video_id
+    )
+
+    # ------------------------------------------------
+    # Add comments to details
+    # ------------------------------------------------
+
+    details[
+        "comments_list"
+    ] = comments
 
     return details
 
@@ -239,36 +553,68 @@ def fetch_video_from_url(url):
 def search_video(keyword):
     """
     Searches for suitable YouTube videos.
+
+    Returns the first video that has comments.
     """
 
     search = youtube.search().list(
+
         q=keyword,
+
         part="snippet",
+
         type="video",
+
         maxResults=5
+
     ).execute()
 
-    items = search.get("items", [])
+    items = search.get(
+        "items",
+        []
+    )
 
     if not items:
-        raise Exception("No videos found.")
+
+        raise Exception(
+            "No videos found."
+        )
+
+    # ------------------------------------------------
+    # Check each search result
+    # ------------------------------------------------
 
     for item in items:
 
-        video_id = item["id"]["videoId"]
+        try:
+
+            video_id = (
+                item["id"]["videoId"]
+            )
+
+        except KeyError:
+
+            continue
 
         try:
 
-            details = fetch_video_details(video_id)
+            details = fetch_video_details(
+                video_id
+            )
 
             if details is None:
+
                 continue
 
-            comments = fetch_comments(video_id)
+            comments = fetch_comments(
+                video_id
+            )
 
             if len(comments) > 0:
 
-                details["comments_list"] = comments
+                details[
+                    "comments_list"
+                ] = comments
 
                 return details
 
